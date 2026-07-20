@@ -26,10 +26,11 @@ def generate_session_id():
 def generate_token():
     return secrets.token_hex(16)
 def is_in_data(id_):
-    result = cursor.execute(
+    cursor.execute(
     "SELECT 1 FROM sessions WHERE id=%s",
     (id_,)
-    ).fetchone()
+    )
+    result = cursor.fetchone()
     return result is not None
 @app.route("/")
 def home():
