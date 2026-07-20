@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS sessions (
     id TEXT PRIMARY KEY,
     token TEXT NOT NULL,
     game TEXT NOT NULL,
-    ip TEXT NOT NULL,
+    ipv4 TEXT NOT NULL,
     port INTEGER NOT NULL,
     last_seen DOUBLE PRECISION NOT NULL
 )
@@ -42,7 +42,7 @@ def home():
     return "Rendezvous server online!"
 @app.route("/create", methods=["POST"])
 def create():
-    ipv6 = get_client_ip()
+    ipv4 = get_client_ip()
     data = request.json
     id_ = generate_session_id()
     token = generate_token()
@@ -50,7 +50,7 @@ def create():
         id_ = generate_session_id()
     cursor.execute(
     "INSERT INTO sessions VALUES (%s, %s, %s, %s, %s, %s)",
-    (id_, token, data["game"], ipv6, data["port"], time.time())
+    (id_, token, data["game"], ipv4, data["port"], time.time())
     )
     db.commit()
     return jsonify({
@@ -60,12 +60,12 @@ def create():
     })
 @app.route("/update", methods=["POST"])
 def update():
-    ipv6 = get_client_ip()
+    ipv4 = get_client_ip()
     data = request.json
     id_ = data["id"]
     cursor.execute(
-    "UPDATE sessions SET ip=%s, port=%s, last_seen=%s WHERE id=%s AND token=%s",
-    (ipv6, data["port"], time.time(), id_, data["token"])
+    "UPDATE sessions SET ipv4=%s, port=%s, last_seen=%s WHERE id=%s AND token=%s",
+    (ipv4, data["port"], time.time(), id_, data["token"])
     )
     db.commit()
     if cursor.rowcount == 0:
@@ -82,7 +82,7 @@ def update():
 def join():
     data = request.json
     cursor.execute(
-    "SELECT ip, port, game FROM sessions WHERE id=%s",
+    "SELECT ipv4, port, game FROM sessions WHERE id=%s",
     (data["id"],)
     )
     res = cursor.fetchone()
@@ -93,7 +93,7 @@ def join():
         })
     return jsonify({
         "success": res is not None,
-        "ip": res[0] if res is not None else None,
+        "ipv4": res[0] if res is not None else None,
         "port": res[1] if res is not None else None,
         "game": res[2] if res is not None else None
     })
