@@ -212,13 +212,20 @@ def join():
     if not isinjoining():
         db = psycopg2.connect(os.environ["DATA_URL"])
         cursor = db.cursor()
+        timing = time.time()+5
         cursor.execute(
         "INSERT INTO joining VALUES (%s, %s, %s, %s, %s, %s)",
-        (data["id"], get_client_ip(), data["port"], data["game"], time.time(), time.time()+5)
+        (data["id"], get_client_ip(), data["port"], data["game"], time.time(), timing)
         )
         db.commit()
         db.close()
-    
+    db = psycopg2.connect(os.environ["DATA_URL"])
+    cursor = db.cursor()
+    cursor.execute(
+    "SELECT * FROM joining WHERE id=%s AND ip=%s AND port=%s AND game=%s",
+    (data["id"], get_client_ip(), data["port"], data["game"])
+    )
+    res2 = cursor.fetchone()
     start = time.time()
     while True:
         if not isinjoining():
@@ -235,7 +242,7 @@ def join():
         "success": res is not None,
         "ipv4": res[0] if res is not None else None,
         "port": res[1] if res is not None else None,
-        "start": time.time()+5
+        "start": res2[5] if res2 is not None else None
     })
 @app.route("/delete", methods=["POST"])
 def delete():
