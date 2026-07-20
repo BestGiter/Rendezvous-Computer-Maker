@@ -47,7 +47,6 @@ def create():
     (id_, token, data["game"], ipv6, data["port"], time.time())
     )
     db.commit()
-    db.close()
     return jsonify({
         "success": True,
         "id": id_,
