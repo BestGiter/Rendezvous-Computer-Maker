@@ -25,7 +25,8 @@ CREATE TABLE IF NOT EXISTS joining (
     ipv4 TEXT NOT NULL,
     port INTEGER NOT NULL,
     game TEXT NOT NULL,
-    last_seen DOUBLE PRECISION NOT NULL
+    last_seen DOUBLE PRECISION NOT NULL,
+    start DOUBLE PRECISION NOT NULL
 )
 """)
 
@@ -154,7 +155,7 @@ def info():
         "info": "SDX"
         })
     cursor.execute(
-    "SELECT ipv4, port FROM joining WHERE id=%s AND game=%s ORDER BY last_seen LIMIT 1",
+    "SELECT ipv4, port, start FROM joining WHERE id=%s AND game=%s ORDER BY last_seen LIMIT 1",
     (data["id"], data["game"])
     )
     res = cursor.fetchone()
@@ -162,7 +163,7 @@ def info():
         db.close()
         return jsonify({
         "success": False,
-        "info": "JDX"
+        "info": "JDX",
         })
     cursor.execute(
     "DELETE FROM joining WHERE ipv4=%s AND port=%s AND id=%s AND game=%s",
@@ -173,7 +174,8 @@ def info():
     return jsonify({
     "success": True,
     "ipv4": res[0],
-    "port": res[1]
+    "port": res[1],
+    "start": res[2]
     })
 def isinjoining():
     ipv4 = get_client_ip()
@@ -211,8 +213,8 @@ def join():
         db = psycopg2.connect(os.environ["DATA_URL"])
         cursor = db.cursor()
         cursor.execute(
-        "INSERT INTO joining VALUES (%s, %s, %s, %s, %s)",
-        (data["id"], get_client_ip(), data["port"], data["game"], time.time())
+        "INSERT INTO joining VALUES (%s, %s, %s, %s, %s, %s)",
+        (data["id"], get_client_ip(), data["port"], data["game"], time.time(), time.time()+5)
         )
         db.commit()
         db.close()
@@ -232,7 +234,8 @@ def join():
     return jsonify({
         "success": res is not None,
         "ipv4": res[0] if res is not None else None,
-        "port": res[1] if res is not None else None
+        "port": res[1] if res is not None else None.
+        "start": time.time()+5
     })
 @app.route("/delete", methods=["POST"])
 def delete():
