@@ -32,12 +32,17 @@ def is_in_data(id_):
     )
     result = cursor.fetchone()
     return result is not None
+def get_client_ip():
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.remote_addr
 @app.route("/")
 def home():
     return "Rendezvous server online!"
 @app.route("/create", methods=["POST"])
 def create():
-    ipv6 = request.remote_addr
+    ipv6 = get_client_ip()
     data = request.json
     id_ = generate_session_id()
     token = generate_token()
@@ -55,7 +60,7 @@ def create():
     })
 @app.route("/update", methods=["POST"])
 def update():
-    ipv6 = request.remote_addr
+    ipv6 = get_client_ip()
     data = request.json
     id_ = data["id"]
     cursor.execute(
