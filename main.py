@@ -3,7 +3,7 @@ import string, secrets, time
 import psycopg2
 import os
 
-db = pyscopg2.connect(os.environ["DATA_URL"])
+db = psycopg2.connect(os.environ["DATA_URL"])
 cursor = db.cursor()
 
 cursor.execute("""
