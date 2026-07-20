@@ -18,11 +18,24 @@ CREATE TABLE IF NOT EXISTS sessions (
 """)
 
 db.commit()
+
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS joining (
+    id TEXT NOT NULL,
+    ipv4 TEXT NOT NULL,
+    port INTEGER NOT NULL,
+    game TEXT NOT NULL,
+    last_seen DOUBLE PRECISION NOT NULL
+)
+""")
+
+db.commit()
 db.close()
 
 app = Flask(__name__)
 
 last_cleanup = 0
+latest_player = None
 
 def cleanup_sessions():
     global last_cleanup
@@ -39,6 +52,16 @@ def cleanup_sessions():
         WHERE last_seen < %s
         """,
         (time.time() - 600,)
+    )
+
+    db.commit()
+
+    cursor.execute(
+        """
+        DELETE FROM joining
+        WHERE last_seen < %s
+        """,
+        (time.time() - 30,)
     )
 
     db.commit()
@@ -107,34 +130,109 @@ def update():
     if cursor.rowcount == 0:
         return jsonify({
         "success": False,
-        "info": "EDX" # entry doesn't exist, make a new one or people cant join
+        "info": "SDX" # entry doesn't exist, make a new one or people cant join
         })
     return jsonify({
         "success": True,
         "id": id_
     })
     
+@app.route("/info", methods=["POST"])
+def info():
+    data = request.json
+    db = psycopg2.connect(os.environ["DATA_URL"])
+    cursor = db.cursor()
+    cursor.execute(
+    "SELECT 1 FROM sessions WHERE id=%s AND token=%s",
+    (data["id"], data["token"])
+    )
+    res = cursor.fetchone()
+    if res is None:
+        db.close()
+        return jsonify({
+        "success": False,
+        "info": "SDX"
+        })
+    cursor.execute(
+    "SELECT ipv4, port FROM joining WHERE id=%s AND game=%s ORDER BY last_seen LIMIT 1",
+    (data["id"], data["game"])
+    )
+    res = cursor.fetchone()
+    if res is None:
+        db.close()
+        return jsonify({
+        "success": False,
+        "info": "JDX"
+        })
+    cursor.execute(
+    "DELETE FROM joining WHERE ipv4=%s AND port=%s AND id=%s AND game=%s",
+    (res[0], res[1], data["id"], data["game"])
+    )
+    db.commit()
+    db.close()
+    return jsonify({
+    "success": True,
+    "ipv4": res[0],
+    "port": res[1]
+    })
+def isinjoining():
+    ipv4 = get_client_ip()
+    id_ = request.json["id"]
+    game = request.json["game"]
+    port = request.json["port"]
+    db = psycopg2.connect(os.environ["DATA_URL"])
+    cursor = db.cursor()
+    cursor.execute(
+    "SELECT 1 FROM joining WHERE ipv4=%s AND port=%s AND id=%s AND game=%s",
+    (ipv4, port, id_, game)
+    )
+    res = cursor.fetchone()
+    db.close()
+    if res is not None:
+        return True
+    return False
 @app.route("/join", methods=["POST"])
 def join():
     data = request.json
     db = psycopg2.connect(os.environ["DATA_URL"])
     cursor = db.cursor()
     cursor.execute(
-    "SELECT ipv4, port, game FROM sessions WHERE id=%s",
-    (data["id"],)
+    "SELECT ipv4, port FROM sessions WHERE id=%s AND game=%s",
+    (data["id"],data["game"])
     )
     res = cursor.fetchone()
     db.close()
     if res is None:
         return jsonify({
         "success": False,
-        "info": "EDX" # entry doesnt exist
+        "info": "SDX" # entry doesnt exist
         })
+    if not isinjoining():
+        db = psycopg2.connect(os.environ["DATA_URL"])
+        cursor = db.cursor()
+        cursor.execute(
+        "INSERT INTO joining VALUES (%s, %s, %s, %s, %s)",
+        (data["id"], get_client_ip(), data["port"], data["game"], time.time())
+        )
+        db.commit()
+        db.close()
+    
+    start = time.time()
+    while True:
+        if not isinjoining():
+            break
+
+        if time.time() - start > 30:
+            return jsonify({
+                "success": False,
+                "info": "HDC"
+            })
+
+            time.sleep(0.5)
     return jsonify({
         "success": res is not None,
         "ipv4": res[0] if res is not None else None,
-        "port": res[1] if res is not None else None,
-        "game": res[2] if res is not None else None
+        "port": res[1] if res is not None else None
     })
 @app.route("/delete", methods=["POST"])
 def delete():
@@ -150,7 +248,7 @@ def delete():
     if cursor.rowcount == 0:
         return jsonify({
         "success": False,
-        "info": "EDX" # entry doesnt exist
+        "info": "SDX" # entry doesnt exist
         })
     return jsonify({
         "success": True
