@@ -228,7 +228,7 @@ def join():
                 "info": "HDC"
             })
 
-            time.sleep(0.5)
+        time.sleep(0.5)
     return jsonify({
         "success": res is not None,
         "ipv4": res[0] if res is not None else None,
