@@ -222,7 +222,7 @@ def join():
     db = psycopg2.connect(os.environ["DATA_URL"])
     cursor = db.cursor()
     cursor.execute(
-    "SELECT * FROM joining WHERE id=%s AND ip=%s AND port=%s AND game=%s",
+    "SELECT * FROM joining WHERE id=%s AND ipv4=%s AND port=%s AND game=%s",
     (data["id"], get_client_ip(), data["port"], data["game"])
     )
     res2 = cursor.fetchone()
