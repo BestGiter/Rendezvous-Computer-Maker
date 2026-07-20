@@ -22,6 +22,32 @@ db.close()
 
 app = Flask(__name__)
 
+last_cleanup = 0
+
+def cleanup_sessions():
+    global last_cleanup
+
+    if time.time() - last_cleanup < 60:
+        return  # only run once per minute
+
+    db = psycopg2.connect(os.environ["DATA_URL"])
+    cursor = db.cursor()
+
+    cursor.execute(
+        """
+        DELETE FROM sessions
+        WHERE last_seen < %s
+        """,
+        (time.time() - 600,)
+    )
+
+    db.commit()
+    db.close()
+
+    last_cleanup = time.time()
+@app.before_request
+def before_request():
+    cleanup_sessions()
 def generate_session_id():
     return "".join(secrets.choice(string.ascii_uppercase) for i in range(4))+"".join(secrets.choice(string.digits) for i in range(6))
 def generate_token():
