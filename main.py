@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS sessions (
 """)
 
 db.commit()
+db.close()
 
 app = Flask(__name__)
 
@@ -26,11 +27,14 @@ def generate_session_id():
 def generate_token():
     return secrets.token_hex(16)
 def is_in_data(id_):
+    db = psycopg2.connect(os.environ["DATA_URL"])
+    cursor = db.cursor()
     cursor.execute(
     "SELECT 1 FROM sessions WHERE id=%s",
     (id_,)
     )
     result = cursor.fetchone()
+    db.close()
     return result is not None
 def get_client_ip():
     forwarded = request.headers.get("X-Forwarded-For")
@@ -48,11 +52,14 @@ def create():
     token = generate_token()
     while is_in_data(id_):
         id_ = generate_session_id()
+    db = psycopg2.connect(os.environ["DATA_URL"])
+    cursor = db.cursor()
     cursor.execute(
     "INSERT INTO sessions VALUES (%s, %s, %s, %s, %s, %s)",
     (id_, token, data["game"], ipv4, data["port"], time.time())
     )
     db.commit()
+    db.close()
     return jsonify({
         "success": True,
         "id": id_,
@@ -63,11 +70,14 @@ def update():
     ipv4 = get_client_ip()
     data = request.json
     id_ = data["id"]
+    db = psycopg2.connect(os.environ["DATA_URL"])
+    cursor = db.cursor()
     cursor.execute(
     "UPDATE sessions SET ipv4=%s, port=%s, last_seen=%s WHERE id=%s AND token=%s",
     (ipv4, data["port"], time.time(), id_, data["token"])
     )
     db.commit()
+    db.close()
     if cursor.rowcount == 0:
         return jsonify({
         "success": False,
@@ -81,11 +91,14 @@ def update():
 @app.route("/join", methods=["POST"])
 def join():
     data = request.json
+    db = psycopg2.connect(os.environ["DATA_URL"])
+    cursor = db.cursor()
     cursor.execute(
     "SELECT ipv4, port, game FROM sessions WHERE id=%s",
     (data["id"],)
     )
     res = cursor.fetchone()
+    db.close()
     if res is None:
         return jsonify({
         "success": False,
@@ -100,11 +113,14 @@ def join():
 @app.route("/delete", methods=["POST"])
 def delete():
     data = request.json
+    db = psycopg2.connect(os.environ["DATA_URL"])
+    cursor = db.cursor()
     cursor.execute(
     "DELETE FROM sessions WHERE id=%s AND token=%s",
     (data["id"],data["token"])
     )
     db.commit()
+    db.close()
     if cursor.rowcount == 0:
         return jsonify({
         "success": False,
