@@ -234,7 +234,7 @@ def join():
     return jsonify({
         "success": res is not None,
         "ipv4": res[0] if res is not None else None,
-        "port": res[1] if res is not None else None.
+        "port": res[1] if res is not None else None,
         "start": time.time()+5
     })
 @app.route("/delete", methods=["POST"])
