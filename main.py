@@ -1,8 +1,9 @@
 from flask import Flask, request, jsonify
 import string, secrets, time
 import psycopg2
+import os
 
-db = pyscopg2.connect("sessions.db")
+db = pyscopg2.connect(os.environ["DATA_URL"])
 cursor = db.cursor()
 
 cursor.execute("""
@@ -26,7 +27,7 @@ def generate_token():
     return secrets.token_hex(16)
 def is_in_data(id_):
     result = cursor.execute(
-    "SELECT 1 FROM sessions WHERE id=?",
+    "SELECT 1 FROM sessions WHERE id=%s",
     (id_,)
     ).fetchone()
     return result is not None
@@ -58,7 +59,7 @@ def update():
     data = request.json
     id_ = data["id"]
     cursor = cursor.execute(
-    "UPDATE sessions SET ip=?, port=?, last_seen=? WHERE id=? AND token=?",
+    "UPDATE sessions SET ip=%s, port=%s, last_seen=%s WHERE id=%s AND token=%s",
     (ipv6, data["port"], time.time(), id_, data["token"])
     )
     db.commit()
@@ -76,7 +77,7 @@ def update():
 def join():
     data = request.json
     res = cursor.execute(
-    "SELECT ip, port, game FROM sessions WHERE id=?",
+    "SELECT ip, port, game FROM sessions WHERE id=%s",
     (data["id"],)
     ).fetchone()
     if res is None:
@@ -94,7 +95,7 @@ def join():
 def delete():
     data = request.json
     cursor = cursor.execute(
-    "DELETE FROM sessions WHERE id=? AND token=?",
+    "DELETE FROM sessions WHERE id=%s AND token=%s",
     (data["id"],data["token"])
     )
     db.commit()
