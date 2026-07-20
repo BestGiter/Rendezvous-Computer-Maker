@@ -57,7 +57,7 @@ def update():
     ipv6 = request.remote_addr
     data = request.json
     id_ = data["id"]
-    cursor = cursor.execute(
+    cursor.execute(
     "UPDATE sessions SET ip=%s, port=%s, last_seen=%s WHERE id=%s AND token=%s",
     (ipv6, data["port"], time.time(), id_, data["token"])
     )
@@ -75,10 +75,11 @@ def update():
 @app.route("/join", methods=["POST"])
 def join():
     data = request.json
-    res = cursor.execute(
+    cursor.execute(
     "SELECT ip, port, game FROM sessions WHERE id=%s",
     (data["id"],)
-    ).fetchone()
+    )
+    res = cursor.fetchone()
     if res is None:
         return jsonify({
         "success": False,
@@ -93,7 +94,7 @@ def join():
 @app.route("/delete", methods=["POST"])
 def delete():
     data = request.json
-    cursor = cursor.execute(
+    cursor.execute(
     "DELETE FROM sessions WHERE id=%s AND token=%s",
     (data["id"],data["token"])
     )
