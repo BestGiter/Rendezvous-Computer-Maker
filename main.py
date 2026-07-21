@@ -13,7 +13,9 @@ CREATE TABLE IF NOT EXISTS sessions (
     game TEXT NOT NULL,
     ipv4 TEXT NOT NULL,
     port INTEGER NOT NULL,
-    last_seen DOUBLE PRECISION NOT NULL
+    last_seen DOUBLE PRECISION NOT NULL,
+    ipv6 TEXT NOT NULL,
+    port6 INTEGER NOT NULL
 )
 """)
 
@@ -26,7 +28,9 @@ CREATE TABLE IF NOT EXISTS joining (
     port INTEGER NOT NULL,
     game TEXT NOT NULL,
     last_seen DOUBLE PRECISION NOT NULL,
-    start DOUBLE PRECISION NOT NULL
+    start DOUBLE PRECISION NOT NULL,
+    ipv6 TEXT NOT NULL,
+    port6 INTEGER NOT NULL
 )
 """)
 
@@ -98,6 +102,7 @@ def home():
 def create():
     ipv4 = get_client_ip()
     data = request.json
+    ipv6 = data["ipv6"]
     id_ = generate_session_id()
     token = generate_token()
     while is_in_data(id_):
@@ -105,8 +110,8 @@ def create():
     db = psycopg2.connect(os.environ["DATA_URL"])
     cursor = db.cursor()
     cursor.execute(
-    "INSERT INTO sessions VALUES (%s, %s, %s, %s, %s, %s)",
-    (id_, token, data["game"], ipv4, data["port"], time.time())
+    "INSERT INTO sessions VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",
+    (id_, token, data["game"], ipv4, data["port"], time.time(), ipv6, data["port6"])
     )
     db.commit()
     db.close()
@@ -119,12 +124,13 @@ def create():
 def update():
     ipv4 = get_client_ip()
     data = request.json
+    ipv6 = data["ipv6"]
     id_ = data["id"]
     db = psycopg2.connect(os.environ["DATA_URL"])
     cursor = db.cursor()
     cursor.execute(
-    "UPDATE sessions SET ipv4=%s, port=%s, last_seen=%s WHERE id=%s AND token=%s",
-    (ipv4, data["port"], time.time(), id_, data["token"])
+    "UPDATE sessions SET ipv4=%s, port=%s, ipv6=%s, port6=%s, last_seen=%s WHERE id=%s AND token=%s",
+    (ipv4, data["port"], ipv6, data["port6"], time.time(), id_, data["token"])
     )
     db.commit()
     db.close()
@@ -155,7 +161,7 @@ def info():
         "info": "SDX"
         })
     cursor.execute(
-    "SELECT ipv4, port, start FROM joining WHERE id=%s AND game=%s ORDER BY last_seen LIMIT 1",
+    "SELECT ipv4, port, start, ipv6, port6 FROM joining WHERE id=%s AND game=%s ORDER BY last_seen LIMIT 1",
     (data["id"], data["game"])
     )
     res = cursor.fetchone()
@@ -166,40 +172,44 @@ def info():
         "info": "JDX",
         })
     cursor.execute(
-    "DELETE FROM joining WHERE ipv4=%s AND port=%s AND id=%s AND game=%s",
-    (res[0], res[1], data["id"], data["game"])
+    "DELETE FROM joining WHERE ipv4=%s AND port=%s AND id=%s AND game=%s AND ipv6=%s AND port6=%s",
+    (res[0], res[1], data["id"], data["game"], res[3], res[4])
     )
     db.commit()
     db.close()
     return jsonify({
     "success": True,
     "ipv4": res[0],
+    "ipv6": res[3],
     "port": res[1],
+    "port6": res[4],
     "start": res[2]
     })
 def isinjoining():
     ipv4 = get_client_ip()
+    ipv6 = request.json["ipv6"]
     id_ = request.json["id"]
     game = request.json["game"]
     port = request.json["port"]
     db = psycopg2.connect(os.environ["DATA_URL"])
     cursor = db.cursor()
     cursor.execute(
-    "SELECT 1 FROM joining WHERE ipv4=%s AND port=%s AND id=%s AND game=%s",
-    (ipv4, port, id_, game)
+    "SELECT start FROM joining WHERE ipv4=%s AND ipv6=%s AND port=%s AND port6=%s AND id=%s AND game=%s",
+    (ipv4, ipv6, port, request.json["port6"], id_, game)
     )
     res = cursor.fetchone()
     db.close()
     if res is not None:
-        return True
-    return False
+        return res[0]
+    return None
 @app.route("/join", methods=["POST"])
 def join():
     data = request.json
+    ipv6 = data["ipv6"]
     db = psycopg2.connect(os.environ["DATA_URL"])
     cursor = db.cursor()
     cursor.execute(
-    "SELECT ipv4, port FROM sessions WHERE id=%s AND game=%s",
+    "SELECT ipv4, port, ipv6, port6 FROM sessions WHERE id=%s AND game=%s",
     (data["id"],data["game"])
     )
     res = cursor.fetchone()
@@ -212,37 +222,33 @@ def join():
     if not isinjoining():
         db = psycopg2.connect(os.environ["DATA_URL"])
         cursor = db.cursor()
-        timing = time.time()+5
+        timing = time.time()+10
         cursor.execute(
-        "INSERT INTO joining VALUES (%s, %s, %s, %s, %s, %s)",
-        (data["id"], get_client_ip(), data["port"], data["game"], time.time(), timing)
+        "INSERT INTO joining VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+        (data["id"], get_client_ip(), data["port"], data["game"], time.time(), timing, ipv6, data["port6"])
         )
         db.commit()
         db.close()
     db = psycopg2.connect(os.environ["DATA_URL"])
     cursor = db.cursor()
     cursor.execute(
-    "SELECT * FROM joining WHERE id=%s AND ipv4=%s AND port=%s AND game=%s",
-    (data["id"], get_client_ip(), data["port"], data["game"])
+    "SELECT * FROM joining WHERE id=%s AND ipv4=%s AND ipv6=%s AND port=%s AND port6=%s AND game=%s",
+    (data["id"], get_client_ip(), ipv6, data["port"], data["port6"], data["game"])
     )
     res2 = cursor.fetchone()
-    start = time.time()
-    while True:
-        if not isinjoining():
-            break
-
-        if time.time() - start > 30:
-            return jsonify({
-                "success": False,
-                "info": "HDC"
-            })
-
-        time.sleep(0.5)
+    db.close()
+    if res2 is None:
+        return jsonify({
+        "success": False,
+        "info": "JDX"
+        })
     return jsonify({
-        "success": res is not None,
-        "ipv4": res[0] if res is not None else None,
-        "port": res[1] if res is not None else None,
-        "start": res2[5] if res2 is not None else None
+        "success": True,
+        "ipv4": res[0],
+        "ipv6": res[2],
+        "port": res[1],
+        "port6": res[3],
+        "start": res2[5]
     })
 @app.route("/delete", methods=["POST"])
 def delete():
