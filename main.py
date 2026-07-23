@@ -50,8 +50,8 @@ def home():
 def create():
     if room_code := is_in_data2(request.json["peer_id"]):
         return jsonify({
-        "success": True,
-        "room_code": room_code 
+        "success": room_code is not None,
+        "room_code": room_code
         })
     id_ = generate_room_code()
     while is_in_data(id_):
@@ -74,7 +74,8 @@ def create():
 @app.route("/join", methods=["POST"])
 def join():
     data = request.json
+    x = is_in_data(data["room_code"])
     return jsonify({
-    "success": True,
-    "peer_id": is_in_data(data["room_code"])
+    "success": x is not None,
+    "peer_id": x
     })
