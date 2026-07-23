@@ -8,7 +8,7 @@ cursor = db.cursor()
 
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS rooms (
-    room_code TEXT PRIMARY KEY
+    room_code TEXT PRIMARY KEY,
     peer_id TEXT NOT NULL
 )
 """)
