@@ -1,4 +1,5 @@
 from flask import Flask, request, jsonify
+from flask_cors import CORS
 import string, secrets, time
 import psycopg2
 import os
@@ -17,6 +18,8 @@ db.commit()
 db.close()
 
 app = Flask(__name__)
+
+CORS(app)
 
 def generate_room_code():
     return "".join(secrets.choice(string.ascii_uppercase+string.digits) for i in range(3))+"-"+"".join(secrets.choice(string.ascii_uppercase+string.digits) for i in range(3))+"-"+"".join(secrets.choice(string.ascii_uppercase+string.digits) for i in range(3))
